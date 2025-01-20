@@ -1,0 +1,309 @@
+# Set the working directory to the folder where the data file is located
+setwd("C:/Users/17985/Desktop/intro dataset")  
+
+# Load the 'results.csv' file
+football_data <- read.csv("results.csv", stringsAsFactors = FALSE)  # Read 'results.csv' and prevent converting strings to factors
+
+# Display the first 6 rows to verify if the file was loaded correctly
+head(football_data)
+
+# Display the structure of the data, showing column names and data types
+str(football_data)
+
+# Provide summary statistics of the data, including min, max, and mean values for numeric columns
+summary(football_data)
+
+# Load necessary libraries
+library(ggplot2)
+library(reshape2)  # For using melt() function
+
+# Create a frequency matrix: the combination of home goals and away goals
+goal_matrix <- table(football_data$home_score, football_data$away_score)
+
+# Limit the matrix to 8x8 (ensuring coordinates range from 0 to 7)
+goal_matrix_limited <- goal_matrix[1:8, 1:8]  # Select goal combinations from 0 to 7
+
+# Convert the frequency matrix to long format using melt()
+goal_matrix_melted <- melt(goal_matrix_limited)
+
+# Plot the heatmap using a red-to-yellow gradient
+ggplot(goal_matrix_melted, aes(x = Var2, y = Var1, fill = value)) + 
+  geom_tile(color = "white") +  # Add white borders to each cell
+  scale_fill_gradient(low = "white", high = "purple") +  # Set color gradient from white to purple
+  labs(title = "Home vs Away Goals Frequency Heatmap (8x8)",
+       x = "Away Goals",
+       y = "Home Goals") +
+  theme_minimal() +
+  scale_x_continuous(breaks = 0:7) +  # X-axis from 0 to 7
+  scale_y_continuous(breaks = 0:7) +  # Y-axis from 0 to 7
+  theme(axis.text.x = element_text(angle = 0),  # Ensure X-axis labels are not tilted
+        axis.text.y = element_text(angle = 0)) +  # Ensure Y-axis labels are not tilted
+  # Add a dashed line along the diagonal (for draws)
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  theme(aspect.ratio = 1)  # Ensure the plot has a square aspect ratio
+
+
+
+
+
+
+
+
+
+
+
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)  # Load tidyr for pivot_longer()
+
+# Assume football_data dataset is already loaded, containing home_score and away_score columns
+
+# Create a new column to calculate match categories
+football_data <- football_data %>%
+  mutate(
+    match_category = case_when(
+      home_score == away_score ~ "Draw",  # Draw
+      abs(home_score - away_score) == 1 ~ "Win by 1 goal",  # Win by 1 goal
+      abs(home_score - away_score) == 2 ~ "Win by 2 goals",  # Win by 2 goals
+      abs(home_score - away_score) == 3 ~ "Win by 3 goals",  # Win by 3 goals
+      abs(home_score - away_score) == 4 ~ "Win by 4 goals",  # Win by 4 goals
+      TRUE ~ "Other"  # Other
+    ),
+    # Create columns to mark home and away wins
+    home_win = ifelse(home_score > away_score, 1, 0),  # Home win marker
+    away_win = ifelse(away_score > home_score, 1, 0)   # Away win marker
+  )
+
+# Filter out draw matches
+football_data <- football_data %>% filter(match_category != "Draw")
+
+# Calculate home and away win rates for each match category
+win_rates <- football_data %>%
+  group_by(match_category) %>%
+  summarise(
+    home_games = n(),
+    home_wins = sum(home_win),
+    away_games = n(),
+    away_wins = sum(away_win)
+  ) %>%
+  mutate(
+    home_win_rate = home_wins / home_games,  # Home win rate
+    away_win_rate = away_wins / away_games   # Away win rate
+  )
+
+# Reorder "match_category" so that "Other" is at the end
+win_rates$match_category <- factor(win_rates$match_category, 
+                                   levels = c("Win by 1 goal", "Win by 2 goals", "Win by 3 goals", 
+                                              "Win by 4 goals", "Other", "Draw"))
+
+# Convert the data to long format for plotting
+win_rates_long <- win_rates %>%
+  pivot_longer(cols = c(home_win_rate, away_win_rate),
+               names_to = "team_type",
+               values_to = "win_rate")
+
+# Plot the stacked bar chart: x-axis is match category, y-axis is win rate, and color differentiates home/away teams
+ggplot(win_rates_long, aes(x = match_category, y = win_rate, fill = team_type)) +
+  geom_bar(stat = "identity", position = "fill", width = 0.7) +  # position = "fill" makes the total sum = 1
+  labs(title = "Win Rate by Home and Away Teams for Different Match Categories",  # Title in English
+       x = "Match Category",  # X-axis label in English
+       y = "Win Rate") +  # Y-axis label in English
+  scale_fill_manual(values = c("home_win_rate" = "red", "away_win_rate" = "blue")) +  # Red for home, blue for away
+  theme_minimal() +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.05), labels = scales::percent) +  # Set Y-axis to show percentage in steps of 5%
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate X-axis labels for readability
+
+
+
+
+
+
+
+
+
+
+
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Set the file path
+file_path <- "C:/Users/17985/Desktop/intro dataset/goalscorers.csv"
+
+# Read the goalscorers dataset
+goalscorers <- read.csv(file_path, stringsAsFactors = FALSE)
+
+# Ensure the 'minute' column is numeric
+goalscorers$minute <- as.numeric(goalscorers$minute)
+
+# Handle missing values: remove rows where 'minute' column has missing values
+goalscorers <- goalscorers[!is.na(goalscorers$minute), ]
+
+# Create a 'team_type' column to label home and away teams
+goalscorers$team_type <- ifelse(goalscorers$team == goalscorers$home_team, "Home", 
+                                ifelse(goalscorers$team == goalscorers$away_team, "Away", NA))
+
+# Remove invalid data (where team type is not correctly labeled)
+goalscorers <- goalscorers[!is.na(goalscorers$team_type), ]
+
+# Generate a data frame summarizing the number of goals by time (1-90 minutes)
+goals_by_time <- goalscorers %>%
+  filter(minute >= 1 & minute <= 90) %>%
+  group_by(minute, team_type) %>%
+  summarise(goals = n(), .groups = "drop")
+
+# Plot the grouped bar chart: x-axis is goal time, y-axis is number of goals, color differentiates home and away teams
+ggplot(goals_by_time, aes(x = minute, y = goals, fill = team_type)) +
+  geom_bar(stat = "identity", position = "dodge", width = 1) +  # Use grouped bar chart to avoid stacking
+  labs(title = "Goals Scored by Time (1-90 Minutes)",        # Title translation
+       x = "Time (Minutes)",                               # X-axis label translation
+       y = "Number of Goals",                             # Y-axis label translation
+       fill = "Team Type") +                              # Legend title translation
+  scale_fill_manual(values = c("Home" = "red", "Away" = "blue")) +  # Red for home, blue for away
+  scale_y_continuous(
+    breaks = seq(0, max(goals_by_time$goals), by = 50),  # Set vertical axis interval to 50
+    labels = scales::comma  # Use commas to separate numbers (e.g., 1,000)
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 90, by = 5)  # Set horizontal axis interval to 5 minutes, from 0 to 90
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate X-axis labels for readability
+
+
+#散点图
+# Scatter plot: x-axis is goal time, y-axis is the number of goals, color differentiates home and away teams
+ggplot(goals_by_time, aes(x = minute, y = goals, color = team_type)) +
+  geom_point(size = 2) +  # Use points for the scatter plot
+  labs(title = "Goals Scored by Time (1-90 Minutes)",        # Title translation
+       x = "Time (Minutes)",                                # X-axis label translation
+       y = "Number of Goals",                              # Y-axis label translation
+       color = "Team Type") +                              # Legend title translation
+  scale_color_manual(values = c("Home" = "red", "Away" = "blue")) +  # Red for home, blue for away
+  scale_y_continuous(
+    breaks = seq(0, max(goals_by_time$goals), by = 50),  # Set vertical axis interval to 50
+    labels = scales::comma  # Use commas to separate numbers (e.g., 1,000)
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 90, by = 5)  # Set horizontal axis interval to 5 minutes, from 0 to 90
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate X-axis labels for readability
+
+
+#折线图
+# Line plot: x-axis is goal time, y-axis is the number of goals, color differentiates home and away teams
+ggplot(goals_by_time, aes(x = minute, y = goals, color = team_type)) +
+  geom_line(size = 1) +  # Use lines for the line plot
+  labs(title = "Goals Scored by Time (1-90 Minutes)",        # Title translation
+       x = "Time (Minutes)",                                # X-axis label translation
+       y = "Number of Goals",                              # Y-axis label translation
+       color = "Team Type") +                              # Legend title translation
+  scale_color_manual(values = c("Home" = "red", "Away" = "blue")) +  # Red for home, blue for away
+  scale_y_continuous(
+    breaks = seq(0, max(goals_by_time$goals), by = 50),  # Set vertical axis interval to 50
+    labels = scales::comma  # Use commas to separate numbers (e.g., 1,000)
+  ) +
+  scale_x_continuous(
+    breaks = seq(0, 90, by = 5)  # Set horizontal axis interval to 5 minutes, from 0 to 90
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))  # Rotate X-axis labels for readability
+
+
+
+
+
+
+
+
+
+
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(gridExtra)  # For arranging the plots side by side
+library(scales)  # For formatting percentages
+
+# Read the goalscorers dataset
+goalscorers <- read.csv("C:/Users/17985/Desktop/intro dataset/goalscorers.csv", stringsAsFactors = FALSE)
+
+# Ensure 'penalty' column is numeric
+goalscorers$penalty <- as.numeric(goalscorers$penalty)
+
+# Calculate the percentage of penalty goals in all home team goals
+home_goal_stats <- goalscorers %>%
+  filter(team == home_team) %>%  # Filter only home team data
+  summarise(
+    total_home_goals = sum(penalty, na.rm = TRUE) + n(),  # Total home goals (including penalty goals)
+    total_home_penalties = sum(penalty, na.rm = TRUE)  # Total home penalties
+  ) %>%
+  mutate(home_penalty_percentage = total_home_penalties / total_home_goals * 100)  # Calculate penalty goal percentage
+
+# Reshape the data for the home team pie chart
+home_goal_stats_long <- data.frame(
+  category = c("Penalty Goals", "Other Goals"),
+  value = c(home_goal_stats$total_home_penalties, home_goal_stats$total_home_goals - home_goal_stats$total_home_penalties)
+)
+
+# Calculate the percentage of penalty goals in all away team goals
+away_goal_stats <- goalscorers %>%
+  filter(team == away_team) %>%  # Filter only away team data
+  summarise(
+    total_away_goals = sum(penalty, na.rm = TRUE) + n(),  # Total away goals (including penalty goals)
+    total_away_penalties = sum(penalty, na.rm = TRUE)  # Total away penalties
+  ) %>%
+  mutate(away_penalty_percentage = total_away_penalties / total_away_goals * 100)  # Calculate penalty goal percentage
+
+# Reshape the data for the away team pie chart
+away_goal_stats_long <- data.frame(
+  category = c("Penalty Goals", "Other Goals"),
+  value = c(away_goal_stats$total_away_penalties, away_goal_stats$total_away_goals - away_goal_stats$total_away_penalties)
+)
+
+# Plot the pie chart for home team penalty goal percentage
+home_pie <- ggplot(home_goal_stats_long, aes(x = "", y = value, fill = category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +  # Convert the bar chart to a pie chart
+  labs(title = "Proportion of Home Team Penalty Goals") +
+  scale_fill_manual(values = c("Penalty Goals" = "#fc8d62", "Other Goals" = "#66c2a5")) +  # Set colors: Orange for penalties, Green for other goals
+  theme_void() +
+  geom_text(aes(label = percent(value / sum(value), accuracy = 0.1)), position = position_stack(vjust = 0.5))  # Display percentages with one decimal place
+
+# Plot the pie chart for away team penalty goal percentage
+away_pie <- ggplot(away_goal_stats_long, aes(x = "", y = value, fill = category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +  # Convert the bar chart to a pie chart
+  labs(title = "Proportion of Away Team Penalty Goals") +
+  scale_fill_manual(values = c("Penalty Goals" = "#fc8d62", "Other Goals" = "#66c2a5")) +  # Set colors: Orange for penalties, Green for other goals
+  theme_void() +
+  geom_text(aes(label = percent(value / sum(value), accuracy = 0.1)), position = position_stack(vjust = 0.5))  # Display percentages with one decimal place
+
+
+# Calculate the number of home team penalty benefit matches (Hb) and away team penalty benefit matches (Ab)
+# The following code should already be calculated for Hb and Ab based on your previous steps
+
+# 1. Create the home team penalty benefit pie chart (Hb)
+home_pie_Hb <- ggplot(Hb_data, aes(x = "", y = value, fill = category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +  # Transform bar chart to pie chart
+  labs(title = "Proportion of Hb (Home Team Benefits\nfrom Penalties) in All Matches with Penalties") +  # Break title into two lines
+  scale_fill_manual(values = c("Home Team Benefits from Penalties" = "lightcoral", "Other Matches with Penalties" = "#e0e0e0")) +  # Red for home team and grey for others
+  theme_void() +
+  geom_text(aes(label = scales::percent(value / sum(value), accuracy = 0.1)), position = position_stack(vjust = 0.5), color = "black")  # Add percentage labels with black color
+
+# 2. Create the away team penalty benefit pie chart (Ab)
+away_pie_Ab <- ggplot(Ab_data, aes(x = "", y = value, fill = category)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar(theta = "y") +  # Transform bar chart to pie chart
+  labs(title = "Proportion of Ab (Away Team Benefits\nfrom Penalties) in All Matches with Penalties") +  # Break title into two lines
+  scale_fill_manual(values = c("Away Team Benefits from Penalties" = "lightblue", "Other Matches with Penalties" = "#e0e0e0")) +  # Blue for away team and grey for others
+  theme_void() +
+  geom_text(aes(label = scales::percent(value / sum(value), accuracy = 0.1)), position = position_stack(vjust = 0.5), color = "black")  # Add percentage labels with black color
+
+
+# Use grid.arrange to display both home team and away team pie charts side by side
+grid.arrange(home_pie, away_pie, home_pie_Hb, away_pie_Ab, ncol = 2)  # Arrange all 4 pie charts in a 2x2 grid with swapped order
